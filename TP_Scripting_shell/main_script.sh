@@ -64,54 +64,6 @@ source ./functions/log_management.sh || { echo "Erreur : Impossible de sourcer l
 source ./functions/system_security.sh || { echo "Erreur : Impossible de sourcer system_security.sh"; exit 1; }
 source ./config/config_file.sh || { echo "Erreur : Impossible de charger le fichier de configuration"; exit 1; }
 
-# Fonction pour vérifier et installer SSH si nécessaire
-function install_ssh() {
-    # Vérifier si SSH est installé
-    if ! dpkg -l | grep -q openssh-server; then
-        echo "Le serveur SSH n'est pas installé. Installation en cours..."
-        sudo apt-get update
-        sudo apt-get install -y openssh-server
-
-        # Vérification si l'installation s'est bien déroulée
-        if [ $? -ne 0 ]; then
-            echo "Erreur lors de l'installation de openssh-server."
-            exit 1
-        fi
-
-        echo "Le serveur SSH a été installé avec succès."
-    else
-        echo "Le serveur SSH est déjà installé."
-    fi
-}
-
-# Fonction pour sécuriser SSH
-function secure_ssh() {
-    echo "Sécurisation de SSH..."
-
-    # Vérifier si le fichier sshd_config existe
-    if [ ! -f /etc/ssh/sshd_config ]; then
-        echo "Erreur : Le fichier /etc/ssh/sshd_config n'existe pas. Vérification de l'installation SSH..."
-        install_ssh  # Si le fichier n'existe pas, tenter d'installer SSH à nouveau
-    fi
-    
-    # Vérifier encore après l'installation
-    if [ ! -f /etc/ssh/sshd_config ]; then
-        echo "Erreur : Le fichier /etc/ssh/sshd_config n'a pas été généré après l'installation. Abandon."
-        exit 1
-    fi
-
-    # Sauvegarder le fichier sshd_config avant de le modifier
-    sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
-    echo "Sauvegarde de /etc/ssh/sshd_config effectuée."
-
-    # Désactiver l'authentification par mot de passe et désactiver l'accès root
-    sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-    sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-
-    # Redémarrer le service SSH pour appliquer les changements
-    sudo systemctl restart sshd
-    echo "SSH sécurisé et service redémarré."
-}
 
 # Fonction principale qui appelle les différentes fonctions de durcissement
 main(){
