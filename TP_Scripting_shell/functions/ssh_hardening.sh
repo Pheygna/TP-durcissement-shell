@@ -6,29 +6,52 @@ SSH_PORT="22"              # Port SSH
 LOCAL_PUB_KEY="/root/.ssh/id_rsa.pub"  # Chemin de la clé publique locale
 AUTHORIZED_KEYS="/root/.ssh/authorized_keys"  # Chemin vers authorized_keys sur le serveur
 
-# Fonction pour configurer SSH
+function install_ssh() {
+    # Vérifier si SSH est installé
+    if ! dpkg -l | grep -q openssh-server; then
+        echo "Le serveur SSH n'est pas installé. Installation en cours..."
+        sudo apt-get update
+        sudo apt-get install -y openssh-server
+
+        # Vérification si l'installation s'est bien déroulée
+        if [ $? -ne 0 ]; then
+            echo "Erreur lors de l'installation de openssh-server."
+            exit 1
+        fi
+
+        echo "Le serveur SSH a été installé avec succès."
+    else
+        echo "Le serveur SSH est déjà installé."
+    fi
+}
+
+# Fonction pour sécuriser SSH
 function secure_ssh() {
     echo "Sécurisation de SSH..."
 
-    SSH_CONFIG="/etc/ssh/sshd_config"
-
-    # Vérification si le fichier de configuration SSH existe
-    if [ -f "$SSH_CONFIG" ]; then
-        # Sauvegarde du fichier de configuration
-        cp "$SSH_CONFIG" "$SSH_CONFIG.bak"
-        echo "Sauvegarde de $SSH_CONFIG effectuée."
-
-        # Modifier les configurations SSH
-        sed -i 's/^#PermitRootLogin yes/PermitRootLogin prohibit-password/' $SSH_CONFIG
-        sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $SSH_CONFIG
-        sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' $SSH_CONFIG
-
-        # Redémarrer le service SSH pour appliquer les modifications
-        systemctl restart sshd && echo "SSH sécurisé et service redémarré."
-    else
-        echo "Erreur : Le fichier $SSH_CONFIG n'existe pas."
+    # Vérifier si le fichier sshd_config existe
+    if [ ! -f /etc/ssh/sshd_config ]; then
+        echo "Erreur : Le fichier /etc/ssh/sshd_config n'existe pas. Vérification de l'installation SSH..."
+        install_ssh  # Si le fichier n'existe pas, tenter d'installer SSH à nouveau
+    fi
+    
+    # Vérifier encore après l'installation
+    if [ ! -f /etc/ssh/sshd_config ]; then
+        echo "Erreur : Le fichier /etc/ssh/sshd_config n'a pas été généré après l'installation. Abandon."
         exit 1
     fi
+
+    # Sauvegarder le fichier sshd_config avant de le modifier
+    sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+    echo "Sauvegarde de /etc/ssh/sshd_config effectuée."
+
+    # Désactiver l'authentification par mot de passe et désactiver l'accès root
+    sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+
+    # Redémarrer le service SSH pour appliquer les changements
+    sudo systemctl restart sshd
+    echo "SSH sécurisé et service redémarré."
 }
 
 # Fonction pour générer une clé SSH si elle n'existe pas
