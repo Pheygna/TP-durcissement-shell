@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Variables à modifier selon votre configuration
-SSH_USER="root"            # Nom de l'utilisateur SSH, par exemple "root" ou un autre utilisateur
+SSH_USER="user"            # Nom de l'utilisateur SSH
 SSH_PORT="22"              # Port SSH
-LOCAL_PUB_KEY="/root/.ssh/id_rsa.pub"  # Chemin de la clé publique locale
-AUTHORIZED_KEYS="/root/.ssh/authorized_keys"  # Chemin vers authorized_keys sur le serveur
+LOCAL_PUB_KEY="/home/$SSH_USER/.ssh/id_rsa.pub"  # Chemin de la clé publique locale
+AUTHORIZED_KEYS="/home/$SSH_USER/.ssh/authorized_keys"  # Chemin vers authorized_keys sur le serveur
 
 function install_ssh() {
     # Vérifier si SSH est installé
@@ -48,6 +48,10 @@ function secure_ssh() {
     # Désactiver l'authentification par mot de passe et désactiver l'accès root
     sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+    sudo sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+
+    # Configurer le port SSH si besoin
+    sudo sed -i "s/#Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
 
     # Redémarrer le service SSH pour appliquer les changements
     sudo systemctl restart sshd
@@ -58,7 +62,7 @@ function secure_ssh() {
 function generate_ssh_key() {
     if [ ! -f "$LOCAL_PUB_KEY" ]; then
         echo "Clé publique non trouvée. Génération d'une nouvelle paire de clés SSH..."
-        ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N ""
+        ssh-keygen -t rsa -b 2048 -f /home/$SSH_USER/.ssh/id_rsa -q -N ""
         echo "Clé SSH générée avec succès."
     else
         echo "Clé publique existante trouvée à $LOCAL_PUB_KEY"
@@ -70,9 +74,9 @@ function add_public_key() {
     echo "Ajout de la clé publique à authorized_keys..."
 
     # Vérification si le fichier authorized_keys existe, sinon le créer
-    if [ ! -d "/root/.ssh" ]; then
-        mkdir -p /root/.ssh
-        chmod 700 /root/.ssh
+    if [ ! -d "/home/$SSH_USER/.ssh" ]; then
+        mkdir -p /home/$SSH_USER/.ssh
+        chmod 700 /home/$SSH_USER/.ssh
     fi
 
     # Ajouter la clé publique si elle n'est pas déjà présente
@@ -89,6 +93,12 @@ function add_public_key() {
         exit 1
     fi
 }
+
+# Vérifier si le script est exécuté en tant que root
+if [ "$(id -u)" != "0" ]; then
+   echo "Ce script doit être exécuté en tant que root." 1>&2
+   exit 1
+fi
 
 # Appel des fonctions
 secure_ssh
