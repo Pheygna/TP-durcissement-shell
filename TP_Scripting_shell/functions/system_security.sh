@@ -24,9 +24,7 @@ function enable_2fa_for_ssh() {
     fi
 
     # Configurer PAM pour utiliser Google Authenticator
-    if ! grep -q "auth required pam_google_authenticator.so" /etc/pam.d/sshd; then
-        echo "auth required pam_google_authenticator.so" >> /etc/pam.d/sshd
-    fi
+    echo "auth required pam_google_authenticator.so" >> /etc/pam.d/sshd
 
     # Configurer SSH pour utiliser la 2FA
     sed -i 's/^#ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
@@ -37,10 +35,11 @@ function enable_2fa_for_ssh() {
 
     echo "Authentification à deux facteurs activée pour SSH. Chaque utilisateur devra configurer Google Authenticator avec 'google-authenticator'."
     logger "Authentification à deux facteurs activée pour SSH"
-}
-
-# Appel de la fonction pour activer la 2FA
-enable_2fa_for_ssh
+	
+	# Générer le code QR pour l'utilisateur courant
+    echo "Configuration du 2FA pour l'utilisateur courant..."
+    google-authenticator -t -d -f -r 3 -R 30 -w 3
+} 	
 
 # Fonction pour désactiver les services inutiles
 function disable_unnecessary_services() {
